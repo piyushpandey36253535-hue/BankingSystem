@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canada Core Banking | Double-Entry Ledger & Fraud Surveillance</title>
+  <meta name="description" content="High-fidelity banking system simulating accounts, double-entry ledger, transfers, and real-time fraud detection.">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6'><path d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z'/></svg>">
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="brand-wrapper">
+      <div class="brand-logo">🏛️</div>
+      <div>
+        <div class="brand-title">
+          CANADA <span>CORE BANKING</span>
+          <span class="brand-badge">SIMULATION MODE</span>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
+          DOUBLE-ENTRY ENGINE • FEDERAL ROUTING #021000021
+        </div>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="system-status-indicator">
+        <span class="pulse-dot"></span>
+        <span id="headerTrialBalanceStatus">LEDGER BALANCED (0.00 VAR)</span>
+      </div>
+      <button class="btn btn-outline btn-sm" id="btnQuickFaucet" onclick="openFaucetModal()">
+        💰 Fund Faucet
+      </button>
+      <button class="btn btn-primary btn-sm" id="btnQuickTransfer" onclick="switchTab('transfers')">
+        ⚡ New Transfer
+      </button>
+      <button class="btn btn-outline btn-sm" id="btnRunAudit" onclick="runManualReconciliation()">
+        🔄 Audit Reconciliation
+      </button>
+    </div>
+  </header>
+
+  <main class="app-container">
+
+    <!-- KPI Metrics Grid -->
+    <section class="metrics-grid" id="metricsGrid">
+      <div class="metric-card emerald">
+        <div class="metric-header">
+          <span class="metric-title">Total Customer Deposits</span>
+          <span class="metric-icon">💵</span>
+        </div>
+        <div class="metric-value" id="kpiDeposits">$0.00</div>
+        <div class="metric-footer">
+          <span style="color: var(--color-emerald);">●</span> Active Customer Liabilities
+        </div>
+      </div>
+
+      <div class="metric-card blue">
+        <div class="metric-header">
+          <span class="metric-title">Central Vault Reserves</span>
+          <span class="metric-icon">🏦</span>
+        </div>
+        <div class="metric-value" id="kpiVault">$0.00</div>
+        <div class="metric-footer">
+          <span style="color: var(--color-blue);">●</span> Bank Asset Capital Reserve
+        </div>
+      </div>
+
+      <div class="metric-card indigo">
+        <div class="metric-header">
+          <span class="metric-title">24h Transfer Volume</span>
+          <span class="metric-icon">📈</span>
+        </div>
+        <div class="metric-value" id="kpiVolume">$0.00</div>
+        <div class="metric-footer">
+          <span id="kpiTxnCount">0 completed</span> today
+        </div>
+      </div>
+
+      <div class="metric-card rose">
+        <div class="metric-header">
+          <span class="metric-title">Fraud Surveillance</span>
+          <span class="metric-icon">🛡️</span>
+        </div>
+        <div class="metric-value" id="kpiAlerts">0</div>
+        <div class="metric-footer">
+          <span id="kpiAlertsSubtitle" style="color: var(--color-rose);">0 Under Review</span>
+        </div>
+      </div>
+
+      <div class="metric-card amber">
+        <div class="metric-header">
+          <span class="metric-title">Reconciliation Status</span>
+          <span class="metric-icon">⚖️</span>
+        </div>
+        <div class="metric-value" id="kpiReconStatus" style="font-size: 20px;">PASSED</div>
+        <div class="metric-footer" id="kpiReconTime">
+          Last checked just now
+        </div>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs-nav" role="tablist">
+      <button class="tab-btn active" onclick="switchTab('overview')">
+        📊 Overview
+      </button>
+      <button class="tab-btn" onclick="switchTab('accounts')">
+        👥 Accounts & KYC
+      </button>
+      <button class="tab-btn" onclick="switchTab('transfers')">
+        💸 Transfer Simulator
+      </button>
+      <button class="tab-btn" onclick="switchTab('ledger')">
+        📜 Double-Entry Ledger
+      </button>
+      <button class="tab-btn" onclick="switchTab('fraud')">
+        🛡️ Fraud Detection
+        <span class="tab-badge" id="tabAlertsCount">0</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('statements')">
+        📑 Statements & Reconciliation
+      </button>
+    </nav>
+
+    <!-- TAB 1: EXECUTIVE OVERVIEW -->
+    <section id="tab-overview" class="tab-content active">
+      <div class="grid-2">
+        <!-- Quick Transfer Widget -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">⚡ Express Simulated Transfer</h2>
+              <p class="card-subtitle">Initiate instant intra-bank funds transfer</p>
+            </div>
+            <span class="badge badge-active">Double-Entry Posting</span>
+          </div>
+
+          <form id="expressTransferForm" onsubmit="handleExpressTransfer(event)">
+            <div class="form-group">
+              <label class="form-label">From Account (Source)</label>
+              <select class="form-control" id="expressSourceAccount" required onchange="updateExpressBalance()">
+                <option value="">Select source account...</option>
+              </select>
+              <div id="expressSourceBalanceHelp" style="font-size: 11px; color: var(--text-muted); margin-top: 4px; font-family: var(--font-mono);">
+                Available: $0.00
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">To Account (Destination)</label>
+              <select class="form-control" id="expressDestAccount" required>
+                <option value="">Select recipient account...</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Amount (Simulated USD)</label>
+              <input type="number" step="0.01" min="1" max="1000000" class="form-control" id="expressAmount" placeholder="e.g. 500.00" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Memo / Description</label>
+              <input type="text" class="form-control" id="expressMemo" placeholder="e.g. Invoice settlement or dinner split" value="Simulated Transfer">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+              Post Double-Entry Transfer
+            </button>
+          </form>
+        </div>
+
+        <!-- System Architecture & Invariant Status -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">⚖️ Double-Entry Accounting Core</h2>
+              <p class="card-subtitle">General Ledger Trial Balance & Equation Status</p>
+            </div>
+            <span class="badge badge-verified">Audit Grade</span>
+          </div>
+
+          <div style="background: var(--bg-surface); border-radius: 8px; padding: 16px; border: 1px solid var(--border-subtle); margin-bottom: 16px;">
+            <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Accounting Equation</div>
+            <div style="font-size: 16px; font-weight: 700; font-family: var(--font-mono); color: var(--color-cyan);">
+              Assets ($12,500,000) = Liabilities ($571,650) + Equity ($11,928,350)
+            </div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+              Every transaction creates balanced debit and credit entries. Customer deposits are booked as liabilities.
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 6px;">
+              <span style="color: var(--text-secondary);">Total Ledger Debits</span>
+              <span style="font-family: var(--font-mono); font-weight: 700; color: var(--color-emerald);" id="overviewTotalDebits">$0.00</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 6px;">
+              <span style="color: var(--text-secondary);">Total Ledger Credits</span>
+              <span style="font-family: var(--font-mono); font-weight: 700; color: var(--color-emerald);" id="overviewTotalCredits">$0.00</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 6px;">
+              <span style="color: var(--text-secondary);">Variance (Debits - Credits)</span>
+              <span style="font-family: var(--font-mono); font-weight: 700; color: var(--color-cyan);" id="overviewVariance">$0.00</span>
+            </div>
+          </div>
+
+          <div style="margin-top: 18px; display: flex; gap: 10px;">
+            <button class="btn btn-outline" style="flex: 1;" onclick="switchTab('ledger')">
+              Inspect General Ledger
+            </button>
+            <button class="btn btn-outline" style="flex: 1;" onclick="switchTab('fraud')">
+              Open Fraud Radar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Transactions Stream -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">📜 Recent Ledger Journals</h2>
+            <p class="card-subtitle">Real-time immutable transaction feed</p>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="loadLedgerJournals()">Refresh</button>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Journal #</th>
+                <th>Reference</th>
+                <th>Type</th>
+                <th>Source</th>
+                <th>Destination</th>
+                <th style="text-align: right;">Amount</th>
+                <th>Status</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="overviewJournalsTableBody">
+              <tr><td colspan="8" style="text-align:center; padding: 20px;">Loading journals...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: ACCOUNTS & KYC VERIFICATION -->
+    <section id="tab-accounts" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">👥 Commercial & Retail Accounts</h2>
+            <p class="card-subtitle">Account lifecycle, verification status, and tiered transfer limits</p>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-primary" onclick="openCreateAccountModal()">
+              ➕ Open New Account
+            </button>
+            <button class="btn btn-outline" onclick="loadAccounts()">
+              🔄 Refresh
+            </button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Account #</th>
+                <th>Holder Name</th>
+                <th>Type</th>
+                <th>KYC Status</th>
+                <th style="text-align: right;">Balance</th>
+                <th style="text-align: right;">Available</th>
+                <th style="text-align: right;">Daily Limit</th>
+                <th>Account Status</th>
+                <th style="text-align: center;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="accountsTableBody">
+              <tr><td colspan="9" style="text-align:center; padding: 20px;">Loading accounts...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: MONEY TRANSFER SIMULATOR -->
+    <section id="tab-transfers" class="tab-content">
+      <div class="grid-2">
+        <!-- Transfer Simulator Form -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">💸 Money-Transfer Simulation Engine</h2>
+              <p class="card-subtitle">Intra-bank, Fedwire / ACH simulation, and real-time fraud scoring</p>
+            </div>
+          </div>
+
+          <form id="transferSimulatorForm" onsubmit="handleTransferSubmit(event)">
+            <div class="form-group">
+              <label class="form-label">Transfer Rail</label>
+              <select class="form-control" id="transferRail" onchange="toggleTransferRail()">
+                <option value="intra">Intra-Bank (Internal Instant Settlement)</option>
+                <option value="inter">Inter-Bank Wire / ACH (Simulated Fedwire Network)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Originating Account (Debited)</label>
+              <select class="form-control" id="transferSourceAccount" required onchange="updateTransferBalance()">
+                <option value="">Select originating account...</option>
+              </select>
+              <div id="transferSourceBalanceDisplay" style="font-size: 11px; color: var(--text-muted); margin-top: 4px; font-family: var(--font-mono);">
+                Available: $0.00 • Single Limit: $0.00 • Daily Limit: $0.00
+              </div>
+            </div>
+
+            <!-- Intra-bank Destination -->
+            <div class="form-group" id="destAccountGroup">
+              <label class="form-label">Recipient Account (Credited)</label>
+              <select class="form-control" id="transferDestAccount">
+                <option value="">Select destination account...</option>
+              </select>
+            </div>
+
+            <!-- Inter-bank Destination Fields -->
+            <div id="interBankFields" style="display: none;">
+              <div class="form-group">
+                <label class="form-label">Destination Bank / Institution</label>
+                <select class="form-control" id="interBankName">
+                  <option value="JPMorgan Chase Bank, N.A.">JPMorgan Chase Bank, N.A. (ABA #021000021)</option>
+                  <option value="Bank of America, N.A.">Bank of America, N.A. (ABA #051000017)</option>
+                  <option value="Wells Fargo Bank, N.A.">Wells Fargo Bank, N.A. (ABA #121000249)</option>
+                  <option value="Citibank, N.A.">Citibank, N.A. (ABA #021000089)</option>
+                  <option value="Barclays Bank PLC">Barclays Bank PLC (SWIFT #BARCGB22)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">External Account Number</label>
+                <input type="text" class="form-control" id="interAccountNumber" placeholder="e.g. 984029104829">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Transfer Amount (Simulated USD)</label>
+              <input type="number" step="0.01" min="1" class="form-control" id="transferAmount" placeholder="e.g. 1500.00" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Payment Reference / Description</label>
+              <input type="text" class="form-control" id="transferDescription" placeholder="e.g. Contract Retainer Payment" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+              Execute & Validate Transfer
+            </button>
+          </form>
+        </div>
+
+        <!-- Scheduled Transfers & Faucet Inflow -->
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          <!-- Simulated Cash Faucet -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">💰 Simulated Money Faucet</h2>
+                <p class="card-subtitle">Inject simulated funds from Central Vault into any customer account</p>
+              </div>
+            </div>
+
+            <form id="faucetForm" onsubmit="handleFaucetSubmit(event)">
+              <div class="form-group">
+                <label class="form-label">Target Account</label>
+                <select class="form-control" id="faucetTargetAccount" required>
+                  <option value="">Select target customer...</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Injection Amount</label>
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" class="btn btn-outline btn-sm" onclick="setFaucetAmount(5000)">+$5,000</button>
+                  <button type="button" class="btn btn-outline btn-sm" onclick="setFaucetAmount(25000)">+$25,000</button>
+                  <button type="button" class="btn btn-outline btn-sm" onclick="setFaucetAmount(100000)">+$100,000</button>
+                </div>
+                <input type="number" step="0.01" min="1" class="form-control" id="faucetAmount" placeholder="Amount" value="10000" style="margin-top: 8px;" required>
+              </div>
+
+              <button type="submit" class="btn btn-success" style="width: 100%;">
+                Inject Simulated Capital (Credit Account)
+              </button>
+            </form>
+          </div>
+
+          <!-- Scheduled Recurring Transfers -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">⏱️ Recurring Scheduled Transfers</h2>
+                <p class="card-subtitle">Automated background worker execution</p>
+              </div>
+              <button class="btn btn-outline btn-sm" onclick="openScheduledTransferModal()">+ Add Schedule</button>
+            </div>
+
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Amount</th>
+                    <th>Frequency</th>
+                    <th>Next Run</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="scheduledTableBody">
+                  <tr><td colspan="6" style="text-align:center; padding: 16px;">Loading scheduled transfers...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: DOUBLE-ENTRY LEDGER EXPLORER -->
+    <section id="tab-ledger" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">📜 Double-Entry General Ledger Explorer</h2>
+            <p class="card-subtitle">Financial grade immutable transaction journals with balanced Debit and Credit rows</p>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-outline" onclick="loadLedgerJournals()">
+              🔄 Refresh Ledger
+            </button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Journal Voucher #</th>
+                <th>Reference</th>
+                <th>Type</th>
+                <th>Description</th>
+                <th style="text-align: right;">Amount</th>
+                <th>Double-Entry Rows (Debits = Credits)</th>
+                <th>Status</th>
+                <th>Timestamp</th>
+                <th style="text-align: center;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerTableBody">
+              <tr><td colspan="9" style="text-align:center; padding: 20px;">Loading general ledger...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: FRAUD DETECTION & ALERTS -->
+    <section id="tab-fraud" class="tab-content">
+      <div class="grid-2">
+        <!-- Fraud Radar Overview -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">🛡️ Real-Time Fraud Radar & Rules Engine</h2>
+              <p class="card-subtitle">Multi-rule heuristic scoring and velocity surveillance</p>
+            </div>
+            <span class="badge badge-rose">Surveillance Active</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px;">
+            <div style="background: var(--bg-surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border-subtle);">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">BSA Structuring Rule</div>
+              <div style="font-size: 14px; font-weight: 700; color: #f43f5e; margin-top: 4px;">$9,000 - $9,999.99</div>
+              <div style="font-size: 11px; color: var(--text-secondary);">Flags evasion of $10k reporting</div>
+            </div>
+
+            <div style="background: var(--bg-surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border-subtle);">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Velocity Burst Rule</div>
+              <div style="font-size: 14px; font-weight: 700; color: #f59e0b; margin-top: 4px;">≥ 3 Txns in 60s</div>
+              <div style="font-size: 11px; color: var(--text-secondary);">Automated bot / rapid drain</div>
+            </div>
+
+            <div style="background: var(--bg-surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border-subtle);">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Anomalous Spike</div>
+              <div style="font-size: 14px; font-weight: 700; color: #38bdf8; margin-top: 4px;">&gt; 4x Historic Avg</div>
+              <div style="font-size: 11px; color: var(--text-secondary);">Account takeover outlier</div>
+            </div>
+
+            <div style="background: var(--bg-surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border-subtle);">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Tier Limits Rule</div>
+              <div style="font-size: 14px; font-weight: 700; color: #a855f7; margin-top: 4px;">KYC Strict Limits</div>
+              <div style="font-size: 11px; color: var(--text-secondary);">Unverified ($1k) vs Verified ($50k)</div>
+            </div>
+          </div>
+
+          <div style="border-top: 1px solid var(--border-subtle); padding-top: 16px;">
+            <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">🎮 Interactive Attack Simulator Sandbox</div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+              Trigger synthetic test attacks against customer accounts to verify real-time radar detection:
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <button class="btn btn-outline btn-sm" onclick="triggerSimulatedAttack('Structuring')">
+                🚨 Trigger AML Structuring ($9,850 Smurfing Pattern)
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="triggerSimulatedAttack('VelocityDrain')">
+                ⚡ Trigger Automated Bot Velocity Burst (Sub-minute Drain)
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="triggerSimulatedAttack('LimitBreach')">
+                ⛔ Trigger High-Value Tier Limit Breach ($75,000 on Unverified)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Open Fraud Alerts Table -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">⚠️ Compliance Surveillance Queue</h2>
+              <p class="card-subtitle">Pending and reviewed security alerts</p>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="loadFraudAlerts()">🔄 Refresh</button>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Alert #</th>
+                  <th>Account</th>
+                  <th>Flagged Amount</th>
+                  <th>Score</th>
+                  <th>Violations</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="fraudAlertsTableBody">
+                <tr><td colspan="7" style="text-align:center; padding: 20px;">Loading alerts...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: STATEMENTS & RECONCILIATION -->
+    <section id="tab-statements" class="tab-content">
+      <div class="grid-2">
+        <!-- Statement Generator -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">📑 Official Account Statement Generator</h2>
+              <p class="card-subtitle">Generate audit statements with starting & ending balances</p>
+            </div>
+          </div>
+
+          <form id="statementForm" onsubmit="handleGenerateStatement(event)">
+            <div class="form-group">
+              <label class="form-label">Select Account</label>
+              <select class="form-control" id="statementAccountSelect" required>
+                <option value="">Select customer account...</option>
+              </select>
+            </div>
+
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label">Start Date</label>
+                <input type="date" class="form-control" id="statementStartDate">
+              </div>
+              <div class="form-group">
+                <label class="form-label">End Date</label>
+                <input type="date" class="form-control" id="statementEndDate">
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+              <button type="submit" class="btn btn-primary" style="flex: 1;">
+                🔍 Generate Statement Preview
+              </button>
+              <button type="button" class="btn btn-outline" onclick="openPrintableStatement()">
+                🖨️ Printable HTML View
+              </button>
+            </div>
+          </form>
+
+          <!-- Statement Preview Area -->
+          <div id="statementPreviewArea" style="margin-top: 20px; display: none;">
+            <div style="background: var(--bg-surface); padding: 16px; border-radius: 8px; border: 1px solid var(--border-subtle); margin-bottom: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <h3 id="stmtHolder" style="font-size: 16px; font-weight: 700;">-</h3>
+                  <div id="stmtMeta" style="font-size: 12px; color: var(--text-muted); font-family: var(--font-mono);">-</div>
+                </div>
+                <div style="text-align: right;">
+                  <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Ending Balance</div>
+                  <div id="stmtEndingBalance" style="font-size: 20px; font-weight: 700; color: var(--color-blue); font-family: var(--font-mono);">$0.00</div>
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; text-align: center;">
+                <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px;">
+                  <div style="font-size: 10px; color: var(--text-muted);">OPENING</div>
+                  <div id="stmtOpeningBalance" style="font-size: 13px; font-weight: 600; font-family: var(--font-mono);">$0.00</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px;">
+                  <div style="font-size: 10px; color: var(--text-muted);">DEPOSITS</div>
+                  <div id="stmtTotalDeposits" style="font-size: 13px; font-weight: 600; color: var(--color-emerald); font-family: var(--font-mono);">+$0.00</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px;">
+                  <div style="font-size: 10px; color: var(--text-muted);">WITHDRAWALS</div>
+                  <div id="stmtTotalWithdrawals" style="font-size: 13px; font-weight: 600; color: var(--color-rose); font-family: var(--font-mono);">-$0.00</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Ref</th>
+                    <th>Description</th>
+                    <th>Flow</th>
+                    <th style="text-align: right;">Amount</th>
+                    <th style="text-align: right;">Balance</th>
+                  </tr>
+                </thead>
+                <tbody id="stmtLinesTableBody">
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Automated Reconciliation Console -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">⚖️ Automated Daily Reconciliation Engine</h2>
+              <p class="card-subtitle">Trial balance audit vs cached ledger balances</p>
+            </div>
+            <button class="btn btn-success btn-sm" onclick="runManualReconciliation()">
+              ▶ Run Full Audit Now
+            </button>
+          </div>
+
+          <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+            <div style="font-weight: 600; color: var(--color-emerald); font-size: 13px; display: flex; align-items: center; gap: 6px;">
+              <span>✓</span> Zero-Variance Reconciliation Active
+            </div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+              Reconciliation background worker audits the general ledger every 3 minutes. Validates that every account's current row balance strictly matches its raw ledger entry mathematical summation.
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Audit ID</th>
+                  <th>Timestamp</th>
+                  <th>Accounts</th>
+                  <th>Trial Balance</th>
+                  <th>Discrepancies</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="reconciliationTableBody">
+                <tr><td colspan="6" style="text-align:center; padding: 16px;">Loading reconciliation history...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODALS -->
+
+  <!-- Create Account Modal -->
+  <div class="modal-overlay" id="createAccountModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Open New Banking Account</h3>
+        <button class="modal-close" onclick="closeModal('createAccountModal')">&times;</button>
+      </div>
+      <form id="createAccountForm" onsubmit="handleCreateAccountSubmit(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Legal Name / Business Entity</label>
+            <input type="text" class="form-control" id="newAccountHolder" placeholder="e.g. Liam Gallagher or Quantum Tech Corp" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" class="form-control" id="newAccountEmail" placeholder="e.g. liam@example.com" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input type="tel" class="form-control" id="newAccountPhone" placeholder="e.g. +1 (555) 019-2834">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Account Type</label>
+            <select class="form-control" id="newAccountType">
+              <option value="Checking">Personal Checking</option>
+              <option value="Savings">High-Yield Savings</option>
+              <option value="Business">Commercial Business</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Initial Opening Deposit (Simulated USD)</label>
+            <input type="number" step="0.01" min="0" class="form-control" id="newAccountInitialDeposit" placeholder="e.g. 1000.00" value="0.00">
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+              Funded via double-entry journal from Central Vault reserves.
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('createAccountModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Open Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- KYC Verification Modal -->
+  <div class="modal-overlay" id="kycModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Identity & KYC Verification Portal</h3>
+        <button class="modal-close" onclick="closeModal('kycModal')">&times;</button>
+      </div>
+      <form id="kycForm" onsubmit="handleKycSubmit(event)">
+        <input type="hidden" id="kycAccountId">
+        <div class="modal-body">
+          <div style="background: rgba(59, 130, 246, 0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.2); margin-bottom: 16px;">
+            <div style="font-size: 12px; color: var(--color-blue); font-weight: 600;">Verification Benefit</div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+              Elevates account to <strong>Verified</strong> tier, raising daily transfer limits from $1,000 to $50,000.00!
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Verifying Account</label>
+            <input type="text" class="form-control" id="kycAccountDisplay" readonly>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Government ID Type</label>
+            <select class="form-control" id="kycDocType">
+              <option value="Passport">Passport</option>
+              <option value="Driver License">Driver License</option>
+              <option value="National ID">National Identity Card</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Document ID Number</label>
+            <input type="text" class="form-control" id="kycDocNumber" placeholder="e.g. P948201948" value="PASS-849204" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Simulated Document Upload</label>
+            <div style="border: 2px dashed var(--border-medium); border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; background: rgba(255,255,255,0.01);">
+              <div style="font-size: 24px;">📄</div>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px;">ID Card / Passport Image Validated (Simulation)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('kycModal')">Cancel</button>
+          <button type="submit" class="btn btn-success">Approve & Elevate Tier</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Review Fraud Alert Modal -->
+  <div class="modal-overlay" id="fraudReviewModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Compliance Fraud Review</h3>
+        <button class="modal-close" onclick="closeModal('fraudReviewModal')">&times;</button>
+      </div>
+      <form id="fraudReviewForm" onsubmit="handleFraudReviewSubmit(event)">
+        <input type="hidden" id="reviewAlertId">
+        <div class="modal-body">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+              <div style="font-size: 12px; color: var(--text-muted);">Risk Score</div>
+              <div id="reviewRiskScoreDisplay" style="font-size: 22px; font-weight: 700; color: #f43f5e; font-family: var(--font-mono);">0 / 100</div>
+            </div>
+            <div>
+              <span id="reviewSeverityBadge" class="badge badge-rose">CRITICAL</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Flagged Details & Violations</label>
+            <div id="reviewDetailsBox" style="background: var(--bg-surface); padding: 12px; border-radius: 8px; font-size: 12px; border: 1px solid var(--border-subtle); color: var(--text-secondary);">
+              -
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Compliance Decision</label>
+            <select class="form-control" id="reviewDecision" onchange="toggleFreezeOption()">
+              <option value="Approved">Approve Transaction & Release Held Funds</option>
+              <option value="Rejected">Reject Transaction & Cancel Hold</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="freezeOptionGroup" style="display: none;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-rose); cursor: pointer;">
+              <input type="checkbox" id="reviewFreezeAccount" value="true">
+              Freeze Source Customer Account for AML Investigation
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Reviewer Notes</label>
+            <textarea class="form-control" id="reviewNotes" rows="2" placeholder="Document compliance rationalization..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('fraudReviewModal')">Dismiss</button>
+          <button type="submit" class="btn btn-primary">Submit Final Decision</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Reversal Journal Modal -->
+  <div class="modal-overlay" id="reversalModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Post Double-Entry Reversal</h3>
+        <button class="modal-close" onclick="closeModal('reversalModal')">&times;</button>
+      </div>
+      <form id="reversalForm" onsubmit="handleReversalSubmit(event)">
+        <input type="hidden" id="reversalJournalId">
+        <div class="modal-body">
+          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+            In accordance with immutable ledger principles, financial transactions are never deleted. A reversing journal voucher will be posted with opposite debit and credit entries to undo this transaction.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label">Target Journal</label>
+            <input type="text" class="form-control" id="reversalJournalDisplay" readonly>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Reason for Reversal</label>
+            <input type="text" class="form-control" id="reversalReason" placeholder="e.g. Customer requested cancelation or duplicate entry correction" required>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('reversalModal')">Cancel</button>
+          <button type="submit" class="btn btn-danger">Post Reversing Journal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scheduled Transfer Modal -->
+  <div class="modal-overlay" id="scheduledModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Create Scheduled Recurring Transfer</h3>
+        <button class="modal-close" onclick="closeModal('scheduledModal')">&times;</button>
+      </div>
+      <form id="createScheduledForm" onsubmit="handleCreateScheduledSubmit(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Source Account</label>
+            <select class="form-control" id="schedSourceAccount" required>
+              <option value="">Select source account...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Destination Account</label>
+            <select class="form-control" id="schedDestAccount" required>
+              <option value="">Select destination account...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Amount (Simulated USD)</label>
+            <input type="number" step="0.01" min="1" class="form-control" id="schedAmount" placeholder="e.g. 500.00" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Frequency</label>
+            <select class="form-control" id="schedFrequency">
+              <option value="Daily">Daily</option>
+              <option value="Weekly">Weekly</option>
+              <option value="Monthly" selected>Monthly</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Description / Memo</label>
+            <input type="text" class="form-control" id="schedDescription" placeholder="e.g. Monthly Payroll or Rent" required>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('scheduledModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Schedule Transfer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Faucet Modal -->
+  <div class="modal-overlay" id="faucetModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Simulated Money Faucet</h3>
+        <button class="modal-close" onclick="closeModal('faucetModal')">&times;</button>
+      </div>
+      <form id="modalFaucetForm" onsubmit="handleModalFaucetSubmit(event)">
+        <div class="modal-body">
+          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+            Fund any customer account with simulated money debited from the bank's Central Vault capital reserves.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label">Account to Fund</label>
+            <select class="form-control" id="modalFaucetAccount" required>
+              <option value="">Select account...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Amount (USD)</label>
+            <input type="number" step="0.01" min="1" class="form-control" id="modalFaucetAmount" value="25000.00" required>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('faucetModal')">Cancel</button>
+          <button type="submit" class="btn btn-success">Credit Simulated Funds</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Scripts -->
+  <script src="js/app.js"></script>
+</body>
+</html>
